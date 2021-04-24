@@ -1,0 +1,8 @@
+name = "EfficientNet"
+uuid = "8ae15c95-d670-4eca-a723-7364633ab054"
+authors = ["Anton Smirnov <anton.smn@protonmail.com>"]
+version = "0.1.0"
+
+[deps]
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
