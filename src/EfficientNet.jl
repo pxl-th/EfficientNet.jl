@@ -1,4 +1,5 @@
 module EfficientNet
+export EffNet, MBConv, get_model_params
 
 using CUDA
 using Flux
@@ -13,13 +14,16 @@ struct EffNet{S, B, H, P, F}
     head::H
     pooling::P
     final::F
+
+    drop_connect::Union{Float32, Nothing}
 end
+
+Flux.@functor EffNet
 
 function EffNet(
     block_params::Vector{BlockParams}, global_params::GlobalParams,
 )
     activation = x -> x .|> swish
-
     # Stem.
     out_channels = round_filter(32, global_params)
     stem_conv = Conv(
@@ -29,7 +33,6 @@ function EffNet(
         out_channels, momentum=global_params.bn_momentum, ϵ=global_params.bn_ϵ,
     )
     stem = Chain(stem_conv, stem_bn, activation)
-
     # Build blocks.
     blocks = MBConv[]
     for bp in block_params
@@ -56,7 +59,6 @@ function EffNet(
             ))
         end
     end
-
     # Head.
     head_out_channels = round_filter(1280, global_params)
     head_conv = Conv(
@@ -67,7 +69,6 @@ function EffNet(
         ϵ=global_params.bn_ϵ,
     )
     head = Chain(head_conv, head_bn, activation)
-
     # Final linear.
     avg_pool = AdaptiveMeanPool((1, 1))
     top = nothing
@@ -77,33 +78,34 @@ function EffNet(
         top = Chain(dropout, fc)
     end
 
-    EffNet(stem, blocks, head, avg_pool, top)
+    EffNet(stem, blocks, head, avg_pool, top, global_params.drop_connect_rate)
 end
 
 function (m::EffNet)(x)
     o = x |> m.stem
-    for block in m.blocks
-        # TODO add drop connect rate
-        o = block(o)
+    for (i, block) in enumerate(m.blocks)
+        p = m.drop_connect
+        p = isnothing(p) ? p : p * (i - 1) / length(m.blocks)
+        o = block(o, drop_probability=p)
     end
     o = o |> m.head |> m.pooling
-    @info typeof(o)
     m.final ≢ nothing && (o = o |> flatten |> m.final;)
-    @info typeof(o)
     o
 end
 
-block_params, global_params = get_model_params("efficientnet-b0")
-model = EffNet(block_params, global_params)
+block_params, global_params = get_model_params("efficientnet-b0", n_classes=10)
+model = EffNet(block_params, global_params) |> trainmode!
+@show model
 
-# m = MBConv(
-#     1, 1, (3, 3), 1,
-#     expansion_ratio=2f0, se_ratio=0.5f0, skip_connection=false,
-#     momentum=0.99f0, ϵ=1f-6,
-# )
-# @show m
+m = MBConv(
+    3, 3, (3, 3), 1,
+    expansion_ratio=2f0, se_ratio=0.5f0, skip_connection=true,
+    momentum=0.99f0, ϵ=1f-6,
+) |> trainmode!
+@show m
 
 x = randn(Float32, (224, 224, 3, 1))
+o = m(x, drop_probability=0.2f0)
 o = x |> model
 println(typeof(x), typeof(o))
 println(size(x), size(o))

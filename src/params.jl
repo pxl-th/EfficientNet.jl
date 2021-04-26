@@ -19,7 +19,7 @@ struct GlobalParams
     bn_momentum::Float32
     bn_ϵ::Float32
 
-    drop_connect_rate::Float64
+    drop_connect_rate::Float32
     depth_divisor::Int64
     min_depth::Union{Nothing, Int64}
     include_top::Bool
@@ -42,9 +42,9 @@ function get_efficientnet_params(model_name::String)
 end
 
 function get_model_params(
-    model_name::String,
+    model_name::String;
     n_classes::Int64 = 1000,
-    drop_connect_rate::Float64 = 0.2,
+    drop_connect_rate::Float32 = 0.2f0,
     include_top::Bool = true
 )
     block_params = [
