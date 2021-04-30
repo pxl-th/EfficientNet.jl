@@ -25,12 +25,10 @@ end
 
 function drop_connect(x::AbstractArray{T}, p, active::Bool) where T <: Number
     !active && return x
-
-    !(0f0 ≤ p ≤ 1f0) && throw(
-        "Probability `p` should be in [0, 1] range. But is $p instead."
-    )
     keep_p = T(1 - p)
-    ϵ = floor.(keep_p .+ randn(T, (1, 1, size(x, 4), 1)))
-
+    ϵ = floor.(keep_p .+ _randlike(x))
     x ./ keep_p .* ϵ
 end
+
+_randlike(x::AbstractArray{T}) where T = randn(T, (1, 1, 1, size(x, 4)))
+_randlike(x::CuArray{T}) where T = CUDA.randn(T, (1, 1, 1, size(x, 4)))

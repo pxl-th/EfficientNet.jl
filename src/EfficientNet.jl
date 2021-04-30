@@ -95,19 +95,14 @@ end
 
 block_params, global_params = get_model_params("efficientnet-b0", n_classes=10)
 model = EffNet(block_params, global_params) |> trainmode!
-@show model
-
-m = MBConv(
-    3, 3, (3, 3), 1,
-    expansion_ratio=2f0, se_ratio=0.5f0, skip_connection=true,
-    momentum=0.99f0, ϵ=1f-6,
-) |> trainmode!
-@show m
+gmodel = model |> gpu
 
 x = randn(Float32, (224, 224, 3, 1))
-o = m(x, drop_probability=0.2f0)
+xg = x |> gpu
+
 o = x |> model
-println(typeof(x), typeof(o))
-println(size(x), size(o))
+@show typeof(o)
+og = xg |> gmodel
+@show typeof(og)
 
 end
