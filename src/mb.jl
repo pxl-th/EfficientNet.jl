@@ -64,15 +64,6 @@ function MBConv(
     )
     bn1 = BatchNorm(mid_channels, momentum=momentum, ϵ=ϵ)
     depthwise = Chain(depthwise_conv, bn1, activation)
-    """
-    GPU ERROR:
-        MethodError: no method matching
-        gemm!(..., ::CUDA.CuPtr{Float32}, ...)
-        Closest candidates are:
-        gemm!(..., ::Ptr{Float32}, ...)
-    Fix?
-        Add gemm implementation with PtrOrCuPtr to NNlib or to NNlibCUDA?
-    """
 
     # Squeeze and Excitation phase.
     if do_excitation
@@ -112,7 +103,7 @@ function (m::MBConv)(x; drop_probability::Union{Float32, Nothing} = nothing)
     o = x
     m.do_expansion && (o = o |> m.expansion;)
     o = o |> m.depthwise
-    m.do_excitation && (o = (o |> m.excitation) .* o;)
+    m.do_excitation && (o = σ.(o |> m.excitation) .* o;)
     o = o |> m.projection
 
     if m.skip_connection && m.stride == 1 && m.in_channels == m.out_channels

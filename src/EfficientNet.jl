@@ -1,6 +1,9 @@
 module EfficientNet
 export EffNet, MBConv, get_model_params
 
+using FileIO
+using Images
+using Pickle
 using CUDA
 using Flux
 
@@ -13,7 +16,7 @@ struct EffNet{S, B, H, P, F}
     blocks::B
     head::H
     pooling::P
-    final::F
+    top::F
 
     drop_connect::Union{Float32, Nothing}
 end
@@ -89,20 +92,115 @@ function (m::EffNet)(x)
         o = block(o, drop_probability=p)
     end
     o = o |> m.head |> m.pooling
-    m.final ≢ nothing && (o = o |> flatten |> m.final;)
+    m.top ≢ nothing && (o = o |> flatten |> m.top;)
     o
 end
 
-block_params, global_params = get_model_params("efficientnet-b0", n_classes=10)
-model = EffNet(block_params, global_params) |> trainmode!
-gmodel = model |> gpu
+function _load_stem!(model::EffNet, params)
+    rebuild_conv!(model.stem[1].weight, params["_conv_stem.weight"])
+    copyto!(model.stem[2].γ, params["_bn0.weight"])
+    copyto!(model.stem[2].β, params["_bn0.bias"])
+    copyto!(model.stem[2].μ, params["_bn0.running_mean"])
+    copyto!(model.stem[2].σ², params["_bn0.running_var"])
+end
 
-x = randn(Float32, (224, 224, 3, 1))
-xg = x |> gpu
+function _load_block!(block::MBConv, params, base)
+    # expansion
+    if block.expansion ≢ nothing
+        rebuild_conv!(
+            block.expansion[1].weight, params[base * "._expand_conv.weight"],
+        )
+        copyto!(block.expansion[2].γ, params[base * "._bn0.weight"])
+        copyto!(block.expansion[2].β, params[base * "._bn0.bias"])
+        copyto!(block.expansion[2].μ, params[base * "._bn0.running_mean"])
+        copyto!(block.expansion[2].σ², params[base * "._bn0.running_var"])
+    end
 
-o = x |> model
-@show typeof(o)
-og = xg |> gmodel
-@show typeof(og)
+    # depthwise
+    rebuild_conv!(
+        block.depthwise[1].weight, params[base * "._depthwise_conv.weight"],
+    )
+    copyto!(block.depthwise[2].γ, params[base * "._bn1.weight"])
+    copyto!(block.depthwise[2].β, params[base * "._bn1.bias"])
+    copyto!(block.depthwise[2].μ, params[base * "._bn1.running_mean"])
+    copyto!(block.depthwise[2].σ², params[base * "._bn1.running_var"])
+
+    # excitation
+    if block.excitation ≢ nothing
+        rebuild_conv!(
+            block.excitation[2].weight, params[base * "._se_reduce.weight"],
+        )
+        copyto!(block.excitation[2].bias, params[base * "._se_reduce.bias"])
+        rebuild_conv!(
+            block.excitation[4].weight, params[base * "._se_expand.weight"],
+        )
+        copyto!(block.excitation[4].bias, params[base * "._se_expand.bias"])
+    end
+
+    # projection
+    rebuild_conv!(
+        block.projection[1].weight, params[base * "._project_conv.weight"],
+    )
+    copyto!(block.projection[2].γ, params[base * "._bn2.weight"])
+    copyto!(block.projection[2].β, params[base * "._bn2.bias"])
+    copyto!(block.projection[2].μ, params[base * "._bn2.running_mean"])
+    copyto!(block.projection[2].σ², params[base * "._bn2.running_var"])
+end
+
+function _load_blocks!(model::EffNet, params)
+    for i in 1:length(model.blocks)
+        _load_block!(model.blocks[i], params, "_blocks.$(i - 1)")
+    end
+end
+
+function from_pretrained(model_name::String)
+    block_params, global_params = get_model_params("efficientnet-b0")
+    model = EffNet(block_params, global_params)
+
+    w = Pickle.Torch.THload(raw"C:\Users\tonys\.cache\torch\hub\checkpoints\efficientnet-b0-355c32eb.pth")
+    wkeys = w |> keys |> collect
+
+    _load_stem!(model, w)
+    _load_blocks!(model, w)
+
+    rebuild_conv!(model.head[1].weight, w["_conv_head.weight"])
+    copyto!(model.head[2].γ, w["_bn1.weight"])
+    copyto!(model.head[2].β, w["_bn1.bias"])
+    copyto!(model.head[2].μ, w["_bn1.running_mean"])
+    copyto!(model.head[2].σ², w["_bn1.running_var"])
+
+    if model.top ≢ nothing
+        copyto!(model.top[2].weight, w["_fc.weight"])
+        copyto!(model.top[2].bias, w["_fc.bias"])
+    end
+    model
+end
+
+function main()
+    """
+    TODO
+    - auto download weights
+    - check that training works
+    """
+    model = from_pretrained("efficientnet-b0")
+    model = model |> testmode! |> gpu
+
+    images = [
+        raw"C:\Users\tonys\Downloads\elephant.png",
+        raw"C:\Users\tonys\Downloads\bee.png",
+        raw"C:\Users\tonys\Downloads\dog.png",
+    ]
+    for image in images
+        x = Images.load(image) |> channelview .|> Float32
+        x .-= reshape([0.485, 0.456, 0.406], (3, 1, 1))
+        x ./= reshape([0.229, 0.224, 0.225], (3, 1, 1))
+        x = Flux.unsqueeze(permutedims(x, (3, 2, 1)), 4)
+
+        o = x |> gpu |> model |> softmax |> cpu
+        o = sortperm(o[:, 1])
+        @info o[end - 5:end]
+    end
+end
+main()
 
 end
