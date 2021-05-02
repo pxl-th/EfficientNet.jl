@@ -1,7 +1,6 @@
 # Pytorch loading utils.
 
 function rebuild_conv!(dst, src)
-    @info size(dst), size(src)
     shape = dst |> size
     filter_x, filter_y = shape[1:2] .+ 1
     for (i, j, k, m) in Iterators.product([1:s for s in shape]...)

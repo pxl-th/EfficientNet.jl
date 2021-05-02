@@ -5,6 +5,7 @@ using Downloads: download
 using FileIO
 using Images
 using Pickle
+
 using CUDA
 using Flux
 
@@ -67,14 +68,17 @@ function from_pretrained(
 end
 
 function main()
-    model = from_pretrained("efficientnet-b0")
+    model = from_pretrained("efficientnet-b3")
     model = model |> testmode! |> gpu
     @info "Model loaded."
 
     images = [
         raw"C:\Users\tonys\Downloads\elephant.png",
+        raw"C:\Users\tonys\Downloads\elephant2.png",
         raw"C:\Users\tonys\Downloads\bee.png",
         raw"C:\Users\tonys\Downloads\dog.png",
+        raw"C:\Users\tonys\Downloads\pug.png",
+        raw"C:\Users\tonys\Downloads\spaceshuttle.png",
     ]
     for image in images
         x = Images.load(image) |> channelview .|> Float32
@@ -85,7 +89,7 @@ function main()
         @info "Image $image:"
         o = x |> gpu |> model |> softmax |> cpu
         o = sortperm(o[:, 1])
-        @info "Top 5 classes", o[end - 5:end]
+        @info "Top 5 classes: $(o[end:-1:end - 5] .- 1)"
     end
 end
 main()
