@@ -92,6 +92,54 @@ function main()
         @info "Top 5 classes: $(o[end:-1:end - 5] .- 1)"
     end
 end
-main()
+
+function test_train()
+    model = from_pretrained("efficientnet-b0")
+    model = model |> trainmode!
+    @info "Model loaded."
+    trainables = model |> params
+
+    x = randn(Float32, 224, 224, 3, 1)
+    y = randn(Float32, 1000, 1)
+
+    gs = gradient(trainables) do
+        o = x |> model |> softmax
+        Flux.crossentropy(o, y)
+    end
+
+    @info gs
+end
+
+function test_mbconv()
+    device = cpu
+
+    m = MBConv(
+        3, 3, (3, 3), 1,
+        expansion_ratio=2f0, se_ratio=0.5f0, skip_connection=true,
+        momentum=0.99f0, ϵ=1f-6,
+    )
+    m = m |> trainmode! |> device
+    trainables = m |> params
+    @info length(trainables)
+    @info size.(trainables)
+
+    x = randn(Float32, 32, 32, 3, 1) |> device
+    y = randn(Float32, 32, 32, 3, 1) |> device
+    """
+    NOTE:
+    - @info not supported in gradient
+    """
+
+    gs = gradient(trainables) do
+        o = m(x, drop_probability=0.2f0)
+        Flux.mse(o, y)
+    end
+
+    @info gs
+end
+
+# test_train()
+test_mbconv()
+# main()
 
 end

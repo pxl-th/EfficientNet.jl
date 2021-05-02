@@ -53,16 +53,16 @@ function MBConv(
         expand_conv = Conv(
             (1, 1), in_channels=>mid_channels, bias=false, pad=SamePad(),
         )
-        bn0 = BatchNorm(mid_channels, momentum=momentum, ϵ=ϵ)
+        bn0 = BatchNorm(mid_channels; momentum, ϵ)
         expansion = Chain(expand_conv, bn0, activation)
     end
 
-    # Depthwise convolution phase.
+    # Depthwise phase.
     depthwise_conv = DepthwiseConv(
         kernel, mid_channels=>mid_channels,
         bias=false, stride=stride, pad=SamePad(),
     )
-    bn1 = BatchNorm(mid_channels, momentum=momentum, ϵ=ϵ)
+    bn1 = BatchNorm(mid_channels; momentum, ϵ)
     depthwise = Chain(depthwise_conv, bn1, activation)
 
     # Squeeze and Excitation phase.
@@ -79,11 +79,11 @@ function MBConv(
         )
     end
 
-    # Pointwise convolution phase.
+    # Projection phase.
     project_conv = Conv(
         (1, 1), mid_channels=>out_channels, pad=SamePad(), bias=false,
     )
-    bn2 = BatchNorm(out_channels, momentum=momentum, ϵ=ϵ)
+    bn2 = BatchNorm(out_channels; momentum, ϵ)
     projection = Chain(project_conv, bn2)
 
     MBConv(
@@ -100,19 +100,24 @@ function Flux.testmode!(m::MBConv, mode = true)
 end
 
 function (m::MBConv)(x; drop_probability::Union{Float32, Nothing} = nothing)
+    do_skip = ( # TODO store in MBConv
+        m.skip_connection && m.stride == 1 && m.in_channels == m.out_channels
+    )
     o = x
+    x_skip = do_skip ? copy(x) : nothing
+
     m.do_expansion && (o = o |> m.expansion;)
     o = o |> m.depthwise
     m.do_excitation && (o = σ.(o |> m.excitation) .* o;)
     o = o |> m.projection
 
-    if m.skip_connection && m.stride == 1 && m.in_channels == m.out_channels
+    if do_skip
         # The combination of skip connection and drop connect
         # brings about stochastic depth.
         if drop_probability ≢ nothing
             o = drop_connect(o, drop_probability, m |> Flux._isactive)
         end
-        o = o + x
+        o = o + x_skip
     end
     o
 end
