@@ -32,11 +32,3 @@ end
 
 _randlike(x::AbstractArray{T}) where T = randn(T, (1, 1, 1, size(x, 4)))
 _randlike(x::CuArray{T}) where T = CUDA.randn(T, (1, 1, 1, size(x, 4)))
-
-function rebuild_conv!(dst, src)
-    shape = dst |> size
-    filter_x, filter_y = shape[1:2] .+ 1
-    for (i, j, k, m) in Iterators.product([1:s for s in shape]...)
-        @inbounds dst[filter_x - i, filter_y - j, k, m] = src[m, k, j, i]
-    end
-end
