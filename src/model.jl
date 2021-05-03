@@ -71,7 +71,8 @@ function EffNet(
     EffNet(stem, blocks, head, avg_pool, top, global_params.drop_connect_rate)
 end
 
-EffNet(model_name::String; kwargs...) = get_model_params(model_name; kwargs...)
+EffNet(model_name::String; kwargs...) =
+    EffNet(get_model_params(model_name; kwargs...)...)
 
 function (m::EffNet)(x)
     o = x |> m.stem
