@@ -4,6 +4,11 @@ EfficientNet implementation in Julia.
 
 ## Install
 
+It was tested on Julia 1.6 and Flux 0.12.3.
+
+**However**, right now it requires [this](https://github.com/pxl-th/NNlibCUDA.jl) fork of NNlibCUDA.jl to work,
+because `DepthwiseConv` is not working on GPU in the original NNlibCUDA.
+
 ```
 ]add https://github.com/pxl-th/EfficientNet.jl.git
 ```
