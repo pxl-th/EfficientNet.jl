@@ -82,3 +82,29 @@ function (m::EffNet)(x)
     m.top ≢ nothing && (o = o |> flatten |> m.top;)
     o
 end
+
+"""
+Use convolution layers to extract features from reduction levels.
+"""
+function extract(m::EffNet, x)
+    endpoints = []
+
+    o = x |> m.stem
+    prev_o = o
+    for (i, block) in enumerate(m.blocks)
+        p = m.drop_connect
+        p = isnothing(p) ? p : p * (i - 1) / length(m.blocks)
+        o = block(o; drop_probability=p)
+
+        # Add endpoint if decreased resolution or it is the last block.
+        if size(prev_o, 1) > size(o, 1)
+            push!(endpoints, prev_o)
+        elseif i == length(m.blocks)
+            push!(endpoints, o)
+        end
+        prev_o = o
+    end
+
+    push!(endpoints, o |> m.head)
+    endpoints
+end

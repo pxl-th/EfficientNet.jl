@@ -15,6 +15,14 @@ include("utils.jl")
 include("model.jl")
 include("load_utils.jl")
 
+"""
+TODO:
+- Move BP/FP to tests
+- Train on MNIST
+- Write README
+- Write constructor
+"""
+
 function from_pretrained(
     model_name::String, cache_dir::Union{String, Nothing} = nothing,
 )
@@ -107,6 +115,9 @@ function test_train()
 
     @info "Forward pass..."
     x |> model
+    @info "Feature extraction pass..."
+    endpoints = extract(model, x)
+    @info typeof(endpoints), length(endpoints)
 
     @info "Gradient pass..."
     gs = gradient(trainables) do
@@ -147,8 +158,8 @@ function test_mbconv()
     @info gs
 end
 
-main()
-test_mbconv()
+# main()
+# test_mbconv()
 test_train()
 
 end
