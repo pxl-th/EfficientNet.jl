@@ -76,7 +76,7 @@ function (m::EffNet)(x)
     for (i, block) in enumerate(m.blocks)
         p = m.drop_connect
         p = isnothing(p) ? p : p * (i - 1) / length(m.blocks)
-        o = block(o, drop_probability=p)
+        o = block(o; drop_probability=p)
     end
     o = o |> m.head |> m.pooling
     m.top ≢ nothing && (o = o |> flatten |> m.top;)

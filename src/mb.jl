@@ -1,16 +1,13 @@
-mutable struct MBConv{E, D, X, P}
+mutable struct MBConv{E, D, X, P, S}
     expansion::E
     depthwise::D
     excitation::X
     projection::P
+    dropout::S
 
     do_expansion::Bool
     do_excitation::Bool
-
-    in_channels::Int64
-    out_channels::Int64
-    stride::Int64
-    skip_connection::Bool
+    do_skip::Bool
 
     active::Union{Bool, Nothing}
 end
@@ -41,11 +38,13 @@ function MBConv(
     expansion_ratio, se_ratio, skip_connection,
     momentum, ϵ,
 )
-    mid_channels = ceil(Int, in_channels * expansion_ratio)
     do_expansion = expansion_ratio != 1
     do_excitation = 0 < se_ratio ≤ 1
-    expansion, excitation = nothing, nothing
+    do_skip = skip_connection && stride == 1 && in_channels == out_channels
+    drop = Dropout(0f0; dims=3)
 
+    mid_channels = ceil(Int, in_channels * expansion_ratio)
+    expansion, excitation = nothing, nothing
     activation = x -> x .|> swish
 
     # Expansion phase.
@@ -87,10 +86,8 @@ function MBConv(
     projection = Chain(project_conv, bn2)
 
     MBConv(
-        expansion, depthwise, excitation, projection,
-        do_expansion, do_excitation,
-        in_channels, out_channels, stride, skip_connection,
-        nothing,
+        expansion, depthwise, excitation, projection, drop,
+        do_expansion, do_excitation, do_skip, nothing,
     )
 end
 
@@ -100,40 +97,39 @@ function Flux.testmode!(m::MBConv, mode = true)
 end
 
 function (m::MBConv)(x; drop_probability::Union{Float32, Nothing} = nothing)
-    do_skip = ( # TODO store in MBConv
-        m.skip_connection && m.stride == 1 && m.in_channels == m.out_channels
-    )
-    o = x
-    x_skip = do_skip ? copy(x) : nothing
+    if m.do_expansion
+        o = x |> m.expansion |> m.depthwise
+    else
+        o = x |> m.depthwise
+    end
 
-    m.do_expansion && (o = o |> m.expansion;)
-    o = o |> m.depthwise
-    m.do_excitation && (o = σ.(o |> m.excitation) .* o;)
+    if m.do_excitation
+        o = σ.(o |> m.excitation) .* o
+    end
     o = o |> m.projection
 
-    if do_skip
+    if m.do_skip
         # The combination of skip connection and drop connect
         # brings about stochastic depth.
         if drop_probability ≢ nothing
-            o = drop_connect(o, drop_probability, m |> Flux._isactive)
+            m.dropout.p = drop_probability
+            o = o |> m.dropout
         end
-        o = o + x_skip
+        o = o + x
     end
     o
 end
 
-function Base.show(io::IO, m::MBConv{E, D, X, P}) where {E, D, X, P}
+function Base.show(io::IO, m::MBConv{E, D, X, P, S}) where {E, D, X, P, S}
     print(io, "MBConv:\n",
         "- expansion: ", E, "\n",
         "- depthwise: ", D, "\n",
         "- excitation: ", X, "\n",
         "- projection: ", P, "\n",
+        "- dropout: ", S, "\n",
         "- do expansion: ", m.do_expansion, "\n",
         "- do excitation: ", m.do_excitation, "\n",
-        "- in channels: ", m.in_channels, "\n",
-        "- out channels: ", m.out_channels, "\n",
-        "- stride: ", m.stride, "\n",
-        "- skip connections: ", m.skip_connection, "\n",
+        "- do skip: ", m.do_skip, "\n",
         "- active: ", m.active, "\n",
     )
 end

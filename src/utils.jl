@@ -19,13 +19,3 @@ end
 )
     ceil.(Int64, image_size ./ stride)
 end
-
-function drop_connect(x::AbstractArray{T}, p, active::Bool) where T <: Number
-    !active && return x
-    keep_p = T(1 - p)
-    ϵ = floor.(keep_p .+ _randlike(x))
-    x ./ keep_p .* ϵ
-end
-
-_randlike(x::AbstractArray{T}) where T = randn(T, (1, 1, 1, size(x, 4)))
-_randlike(x::CuArray{T}) where T = CUDA.randn(T, (1, 1, 1, size(x, 4)))

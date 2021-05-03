@@ -68,8 +68,9 @@ function from_pretrained(
 end
 
 function main()
+    device = gpu
     model = from_pretrained("efficientnet-b3")
-    model = model |> testmode! |> gpu
+    model = model |> testmode! |> device
     @info "Model loaded."
 
     images = [
@@ -87,21 +88,27 @@ function main()
         x = Flux.unsqueeze(permutedims(x, (3, 2, 1)), 4)
 
         @info "Image $image:"
-        o = x |> gpu |> model |> softmax |> cpu
+        o = x |> device |> model |> softmax |> cpu
         o = sortperm(o[:, 1])
         @info "Top 5 classes: $(o[end:-1:end - 5] .- 1)"
     end
 end
 
 function test_train()
+    device = gpu
+
     model = from_pretrained("efficientnet-b0")
-    model = model |> trainmode!
+    model = model |> trainmode! |> device
     @info "Model loaded."
     trainables = model |> params
 
-    x = randn(Float32, 224, 224, 3, 1)
-    y = randn(Float32, 1000, 1)
+    x = randn(Float32, 224, 224, 3, 1) |> device
+    y = randn(Float32, 1000, 1) |> device
 
+    @info "Forward pass..."
+    x |> model
+
+    @info "Gradient pass..."
     gs = gradient(trainables) do
         o = x |> model |> softmax
         Flux.crossentropy(o, y)
@@ -111,7 +118,7 @@ function test_train()
 end
 
 function test_mbconv()
-    device = cpu
+    device = gpu
 
     m = MBConv(
         3, 3, (3, 3), 1,
@@ -119,27 +126,29 @@ function test_mbconv()
         momentum=0.99f0, ϵ=1f-6,
     )
     m = m |> trainmode! |> device
+    @show m
+
     trainables = m |> params
     @info length(trainables)
     @info size.(trainables)
 
     x = randn(Float32, 32, 32, 3, 1) |> device
     y = randn(Float32, 32, 32, 3, 1) |> device
-    """
-    NOTE:
-    - @info not supported in gradient
-    """
 
+    @info "Forward pass..."
+    m(x; drop_probability=0.2f0)
+
+    @info "Gradient pass..."
     gs = gradient(trainables) do
-        o = m(x, drop_probability=0.2f0)
+        o = m(x; drop_probability=0.2f0)
         Flux.mse(o, y)
     end
 
     @info gs
 end
 
-# test_train()
+main()
 test_mbconv()
-# main()
+test_train()
 
 end
