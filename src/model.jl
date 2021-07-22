@@ -89,25 +89,24 @@ end
 """
 Use convolution layers to extract features from reduction levels.
 """
-function extract(m::EffNet, x)
-    endpoints = []
+function (m::EffNet)(x, stages_ids::AbstractVector{Int})
+    stages = [x]
 
     o = x |> m.stem
-    prev_o = o
+    push!(stages, o)
+
+    sid = stages_ids |> popfirst!
     for (i, block) in enumerate(m.blocks)
         p = m.drop_connect
         p = isnothing(p) ? p : p * (i - 1) / length(m.blocks)
         o = block(o; drop_probability=p)
 
-        # Add endpoint if decreased resolution or it is the last block.
-        if size(prev_o, 1) > size(o, 1)
-            push!(endpoints, prev_o)
-        elseif i == length(m.blocks)
-            push!(endpoints, o)
+        if i == sid
+            push!(stages, o)
+            isempty(stages_ids) && break
+            sid = stages_ids |> popfirst!
         end
-        prev_o = o
     end
 
-    push!(endpoints, o |> m.head)
-    endpoints
+    stages
 end
