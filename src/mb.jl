@@ -57,9 +57,9 @@ function MBConv(
     end
 
     # Depthwise phase.
-    depthwise_conv = DepthwiseConv(
+    depthwise_conv = Conv(
         kernel, mid_channels=>mid_channels,
-        bias=false, stride=stride, pad=SamePad(),
+        bias=false, stride=stride, pad=SamePad(), groups=mid_channels,
     )
     bn1 = BatchNorm(mid_channels; momentum, ϵ)
     depthwise = Chain(depthwise_conv, bn1, activation)
