@@ -16,7 +16,6 @@ function EffNet(
     block_params::Vector{BlockParams}, global_params::GlobalParams,
     include_head::Bool = true,
 )
-    # activation = x -> x .|> swish
     # Stem.
     out_channels = round_filter(32, global_params)
     stem_conv = Conv(
