@@ -45,7 +45,6 @@ function MBConv(
 
     mid_channels = ceil(Int, in_channels * expansion_ratio)
     expansion, excitation = nothing, nothing
-    # activation = x -> x .|> swish
 
     # Expansion phase.
     if do_expansion
@@ -104,7 +103,7 @@ function (m::MBConv)(x; drop_probability::Union{Float32, Nothing} = nothing)
     if m.do_excitation
         o = σ.(o |> m.excitation) .* o
     end
-    o = o |> m.projection
+    o = o |> m.projection |> copy # TODO remove copy when BatchNorm fixes Fill.Ones stuff with gradients
 
     if m.do_skip
         # The combination of skip connection and drop connect
