@@ -8,6 +8,12 @@ EfficientNet implementation in Julia.
 ]add https://github.com/pxl-th/EfficientNet.jl.git
 ```
 
+## Construct model
+
+```julia
+model = EffNet("efficientnet-b0"; n_classes=10)
+```
+
 ## ImageNet pretrained model
 
 ```julia
@@ -20,12 +26,11 @@ Additionally, you can specify cache directory as a second parameter to `from_pre
 
 Available pretrained models are B0-B7.
 They are loaded from [EfficientNet-PyTorch](https://github.com/lukemelas/EfficientNet-PyTorch)
-and converted to the Julia's format.
+and converted to Julia's format.
 
 ## Example inference on image
 
 ```julia
-using FileIO
 using Images
 using EfficientNet
 
@@ -42,6 +47,8 @@ o = sortperm(o[:, 1])
 @info "Top 5 classes: $(o[end:-1:end - 5] .- 1)"
 ```
 
+## Feature extraction
+
 To extract list of features, pass `Val(:stages)` as the second parameter:
 
 ```julia
@@ -50,3 +57,6 @@ features = model(x, Val(:stages))
 
 It will contain features, extracted from different resolution levels.
 This can be used in something like UNet architecture as an encoder.
+To get those resolution levels,
+call `get_stages(model)` and `stages_channels(model)` functions
+to get ids of specific layers and output channels.
