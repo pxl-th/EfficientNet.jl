@@ -102,22 +102,26 @@ end
 Use convolution layers to extract features from reduction levels.
 """
 function (m::EffNet)(x, ::Val{:stages})
+    sid = 1
     stages_ids = m |> get_stages
     stages = [x]
 
     o = x |> m.stem
     push!(stages, o)
 
-    sid = stages_ids |> popfirst!
     for (i, block) in enumerate(m.blocks)
         p = m.drop_connect
-        p = isnothing(p) ? p : p * (i - 1) / length(m.blocks)
+        if !isnothing(p)
+            p = p * (i - 1) / length(m.blocks)
+        end
         o = block(o; drop_probability=p)
 
-        if i == sid
+        if i == stages_ids[sid]
+            sid += 1
             push!(stages, o)
-            isempty(stages_ids) && break
-            sid = stages_ids |> popfirst!
+            if sid > length(stages_ids)
+                break
+            end
         end
     end
 
@@ -135,9 +139,9 @@ function get_stages(e::EffNet)
         "efficientnet-b6" => [9, 15, 31, 45],
         "efficientnet-b7" => [11, 18, 38, 55],
     )
-    !(e.model_name in keys(d)) && throw(
-        "Only `efficientnet-[b0-b7]` are supported."
-    )
+    if !(e.model_name in keys(d))
+        throw("Only `efficientnet-[b0-b7]` are supported.")
+    end
     d[e.model_name]
 end
 
@@ -152,8 +156,8 @@ function stages_channels(e::EffNet)
         "efficientnet-b6" => (3, 56, 40, 72, 200, 576),
         "efficientnet-b7" => (3, 64, 48, 80, 224, 640),
     )
-    !(e.model_name in keys(d)) && throw(
-        "Only `efficientnet-[b0-b7]` are supported."
-    )
+    if !(e.model_name in keys(d))
+        throw("Only `efficientnet-[b0-b7]` are supported.")
+    end
     d[e.model_name]
 end
