@@ -1,5 +1,5 @@
 module EfficientNet
-export EffNet, from_pretrained
+export EffNet, from_pretrained, stages_channels
 
 using Downloads: download
 using Pickle
@@ -11,13 +11,14 @@ include("utils.jl")
 include("model.jl")
 include("load_utils.jl")
 
-# using FileIO
 # using Images
 # function main()
 #     device = gpu
-#     model = from_pretrained("efficientnet-b0")
+#     model = from_pretrained("efficientnet-b0"; include_head=false)
 #     model = model |> testmode! |> device
 #     @info "Model loaded on device $device."
+#     @info "Stages channels: $(stages_channels(model))"
+#     @info "Stages: $(get_stages(model))"
 
 #     images = [
 #         "/home/pxl-th/Downloads/elephant.png",
@@ -40,10 +41,10 @@ include("load_utils.jl")
 #             @info "Feature size: $(size(f))"
 #         end
 
-#         @info "Image $image:"
-#         o = x |> model |> softmax |> cpu
-#         o = sortperm(o[:, 1])
-#         @info "Top 5 classes: $(o[end:-1:end - 5] .- 1)"
+#         # @info "Image $image:"
+#         # o = x |> model |> softmax |> cpu
+#         # o = sortperm(o[:, 1])
+#         # @info "Top 5 classes: $(o[end:-1:end - 5] .- 1)"
 #     end
 # end
 # main()

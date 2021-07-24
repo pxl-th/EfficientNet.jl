@@ -78,14 +78,15 @@ function _load_head!(model::EffNet, params)
     end
 end
 
-@inline function _load_pth!(model::EffNet, params)
+@inline function _load_pth!(model::EffNet, params, include_head::Bool)
     _load_stem!(model, params)
     _load_blocks!(model, params)
-    _load_head!(model, params)
+    include_head && _load_head!(model, params)
 end
 
 function from_pretrained(
-    model_name::String, cache_dir::Union{String, Nothing} = nothing,
+    model_name::String; cache_dir::Union{String, Nothing} = nothing,
+    include_head::Bool = true,
 )
     url_base = (
         "https://github.com/lukemelas/EfficientNet-PyTorch" *
@@ -128,10 +129,10 @@ function from_pretrained(
     end
 
     block_params, global_params = get_model_params(model_name)
-    model = EffNet(model_name, block_params, global_params)
+    model = EffNet(model_name, block_params, global_params, include_head)
 
     params = Pickle.Torch.THload(params_path)
-    _load_pth!(model, params)
+    _load_pth!(model, params, include_head)
 
     model
 end

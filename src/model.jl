@@ -14,6 +14,7 @@ Flux.@functor EffNet
 function EffNet(
     model_name::String,
     block_params::Vector{BlockParams}, global_params::GlobalParams,
+    include_head::Bool = true,
 )
     activation = x -> x .|> swish
     # Stem.
@@ -51,6 +52,12 @@ function EffNet(
             ))
         end
     end
+
+    include_head || return EffNet(
+        stem, blocks, nothing, nothing, nothing,
+        global_params.drop_connect_rate, model_name,
+    )
+
     # Head.
     head_out_channels = round_filter(1280, global_params)
     head_conv = Conv(
