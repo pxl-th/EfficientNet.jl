@@ -45,15 +45,15 @@ function MBConv(
 
     mid_channels = ceil(Int, in_channels * expansion_ratio)
     expansion, excitation = nothing, nothing
-    activation = x -> x .|> swish
+    # activation = x -> x .|> swish
 
     # Expansion phase.
     if do_expansion
         expand_conv = Conv(
             (1, 1), in_channels=>mid_channels, bias=false, pad=SamePad(),
         )
-        bn0 = BatchNorm(mid_channels; momentum, ϵ)
-        expansion = Chain(expand_conv, bn0, activation)
+        bn0 = BatchNorm(mid_channels, swish; momentum, ϵ)
+        expansion = Chain(expand_conv, bn0)
     end
 
     # Depthwise phase.
@@ -61,21 +61,19 @@ function MBConv(
         kernel, mid_channels=>mid_channels,
         bias=false, stride=stride, pad=SamePad(), groups=mid_channels,
     )
-    bn1 = BatchNorm(mid_channels; momentum, ϵ)
-    depthwise = Chain(depthwise_conv, bn1, activation)
+    bn1 = BatchNorm(mid_channels, swish; momentum, ϵ)
+    depthwise = Chain(depthwise_conv, bn1)
 
     # Squeeze and Excitation phase.
     if do_excitation
         n_squeezed_channels = max(1, ceil(Int, in_channels * se_ratio))
         squeeze_conv = Conv(
-            (1, 1), mid_channels=>n_squeezed_channels, pad=SamePad(),
+            (1, 1), mid_channels=>n_squeezed_channels, swish; pad=SamePad(),
         )
         excite_conv = Conv(
-            (1, 1), n_squeezed_channels=>mid_channels, pad=SamePad(),
+            (1, 1), n_squeezed_channels=>mid_channels; pad=SamePad(),
         )
-        excitation = Chain(
-            AdaptiveMeanPool((1, 1)), squeeze_conv, activation, excite_conv,
-        )
+        excitation = Chain(AdaptiveMeanPool((1, 1)), squeeze_conv, excite_conv)
     end
 
     # Projection phase.

@@ -44,9 +44,9 @@ function _load_block!(block::MBConv, params, base)
         )
         copyto!(block.excitation[2].bias, params[base * "._se_reduce.bias"])
         rebuild_conv!(
-            block.excitation[4].weight, params[base * "._se_expand.weight"],
+            block.excitation[3].weight, params[base * "._se_expand.weight"],
         )
-        copyto!(block.excitation[4].bias, params[base * "._se_expand.bias"])
+        copyto!(block.excitation[3].bias, params[base * "._se_expand.bias"])
     end
 
     # projection
