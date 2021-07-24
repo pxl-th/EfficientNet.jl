@@ -103,11 +103,11 @@ function (m::MBConv)(x; drop_probability::Union{Float32, Nothing} = nothing)
     if m.do_excitation
         o = σ.(o |> m.excitation) .* o
     end
-    o = o |> m.projection |> copy # TODO remove copy when BatchNorm fixes Fill.Ones stuff with gradients
+    o = o |> m.projection
 
     if m.do_skip
         # The combination of skip connection and drop connect
-        # brings about stochastic depth.
+        # creates stochastic depth effect.
         if drop_probability ≢ nothing
             m.dropout.p = drop_probability
             o = o |> m.dropout
