@@ -118,7 +118,7 @@ function (m::EffNet)(x, ::Val{:stages})
 end
 
 function get_stages(e::EffNet)
-    Dict(
+    d = Dict(
         "efficientnet-b0" => [3, 5, 9, 16],
         "efficientnet-b1" => [5, 8, 16, 23],
         "efficientnet-b2" => [5, 8, 16, 23],
@@ -127,5 +127,26 @@ function get_stages(e::EffNet)
         "efficientnet-b5" => [8, 13, 27, 39],
         "efficientnet-b6" => [9, 15, 31, 45],
         "efficientnet-b7" => [11, 18, 38, 55],
-    )[e.model_name]
+    )
+    !(e.model_name in keys(d)) && throw(
+        "Only `efficientnet-[b0-b7]` are supported."
+    )
+    d[e.model_name]
+end
+
+function stages_channels(e::EffNet)
+    d = Dict(
+        "efficientnet-b0" => (3, 32, 24, 40, 112, 320),
+        "efficientnet-b1" => (3, 32, 24, 40, 112, 320),
+        "efficientnet-b2" => (3, 32, 24, 48, 120, 352),
+        "efficientnet-b3" => (3, 40, 32, 48, 136, 384),
+        "efficientnet-b4" => (3, 48, 32, 56, 160, 448),
+        "efficientnet-b5" => (3, 48, 40, 64, 176, 512),
+        "efficientnet-b6" => (3, 56, 40, 72, 200, 576),
+        "efficientnet-b7" => (3, 64, 48, 80, 224, 640),
+    )
+    !(e.model_name in keys(d)) && throw(
+        "Only `efficientnet-[b0-b7]` are supported."
+    )
+    d[e.model_name]
 end
