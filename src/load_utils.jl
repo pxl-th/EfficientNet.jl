@@ -128,7 +128,7 @@ function from_pretrained(
     end
 
     block_params, global_params = get_model_params(model_name)
-    model = EffNet(block_params, global_params)
+    model = EffNet(model_name, block_params, global_params)
 
     params = Pickle.Torch.THload(params_path)
     _load_pth!(model, params)

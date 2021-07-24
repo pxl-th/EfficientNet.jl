@@ -6,11 +6,13 @@ struct EffNet{S, B, H, P, F}
     top::F
 
     drop_connect::Union{Float32, Nothing}
+    model_name::String
 end
 
 Flux.@functor EffNet
 
 function EffNet(
+    model_name::String,
     block_params::Vector{BlockParams}, global_params::GlobalParams,
 )
     activation = x -> x .|> swish
@@ -68,11 +70,14 @@ function EffNet(
         top = Chain(dropout, fc)
     end
 
-    EffNet(stem, blocks, head, avg_pool, top, global_params.drop_connect_rate)
+    EffNet(
+        stem, blocks, head, avg_pool, top,
+        global_params.drop_connect_rate, model_name,
+    )
 end
 
 EffNet(model_name::String; kwargs...) =
-    EffNet(get_model_params(model_name; kwargs...)...)
+    EffNet(model_name, get_model_params(model_name; kwargs...)...)
 
 function (m::EffNet)(x)
     o = x |> m.stem
@@ -89,7 +94,8 @@ end
 """
 Use convolution layers to extract features from reduction levels.
 """
-function (m::EffNet)(x, stages_ids::AbstractVector{Int})
+function (m::EffNet)(x, ::Val{:stages})
+    stages_ids = m |> get_stages
     stages = [x]
 
     o = x |> m.stem
@@ -109,4 +115,17 @@ function (m::EffNet)(x, stages_ids::AbstractVector{Int})
     end
 
     stages
+end
+
+function get_stages(e::EffNet)
+    Dict(
+        "efficientnet-b0" => [3, 5, 9, 16],
+        "efficientnet-b1" => [5, 8, 16, 23],
+        "efficientnet-b2" => [5, 8, 16, 23],
+        "efficientnet-b3" => [5, 8, 18, 26],
+        "efficientnet-b4" => [6, 10, 22, 32],
+        "efficientnet-b5" => [8, 13, 27, 39],
+        "efficientnet-b6" => [9, 15, 31, 45],
+        "efficientnet-b7" => [11, 18, 38, 55],
+    )[e.model_name]
 end

@@ -25,6 +25,10 @@ and converted to the Julia's format.
 ## Example inference on image
 
 ```julia
+using FileIO
+using Images
+using EfficientNet
+
 device = gpu
 model = from_pretrained("efficientnet-b3")
 model = model |> testmode! |> device
@@ -37,3 +41,12 @@ o = x |> device |> model |> softmax |> cpu
 o = sortperm(o[:, 1])
 @info "Top 5 classes: $(o[end:-1:end - 5] .- 1)"
 ```
+
+To extract list of features, pass `Val(:stages)` as the second parameter:
+
+```julia
+features = model(x, Val(:stages))
+```
+
+It will contain features, extracted from different resolution levels.
+This can be used in something like UNet architecture as an encoder.

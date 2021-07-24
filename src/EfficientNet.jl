@@ -2,11 +2,7 @@ module EfficientNet
 export EffNet, from_pretrained
 
 using Downloads: download
-using FileIO
-using Images
 using Pickle
-
-using CUDA
 using Flux
 
 include("params.jl")
@@ -15,6 +11,8 @@ include("utils.jl")
 include("model.jl")
 include("load_utils.jl")
 
+# using FileIO
+# using Images
 # function main()
 #     device = gpu
 #     model = from_pretrained("efficientnet-b0")
@@ -36,7 +34,7 @@ include("load_utils.jl")
 #         x = x |> device
 #         @info "Image size: $(size(x))"
 
-#         features = model(x, [3, 5, 9, 16])
+#         features = model(x, Val(:stages))
 #         @info "Features: $(length(features))"
 #         for f in features
 #             @info "Feature size: $(size(f))"
