@@ -5,7 +5,7 @@ struct EffNet{S, B, H, P, F}
     pooling::P
     top::F
 
-    drop_connect::Union{Float32, Nothing}
+    drop_connect::Union{Real, Nothing}
     model_name::String
 end
 
@@ -23,7 +23,7 @@ function EffNet(
     )
     stem_bn = BatchNorm(
         out_channels, swish,
-        momentum=global_params.bn_momentum, ϵ=global_params.bn_ϵ,
+        # momentum=global_params.bn_momentum, ϵ=global_params.bn_ϵ,
     )
     stem = Chain(stem_conv, stem_bn)
     # Build blocks.
@@ -65,7 +65,7 @@ function EffNet(
     )
     head_bn = BatchNorm(
         head_out_channels, swish,
-        momentum=global_params.bn_momentum, ϵ=global_params.bn_ϵ,
+        # momentum=global_params.bn_momentum, ϵ=global_params.bn_ϵ,
     )
     head = Chain(head_conv, head_bn)
     # Final linear.
@@ -133,6 +133,34 @@ function (m::EffNet)(x, ::Val{:stages})
     end
 
     stages
+end
+
+function (m::EffNet)(x::V, ::Val{:stages_map}) where V <: AbstractArray
+    # Create stages to pass to `map`.
+    sb = 1
+    stages = Any[m.stem]
+    for sid in get_stages(m)
+        push!(stages, m.blocks[sb:sid])
+        sb = sid + 1
+    end
+
+    block_id = 0
+    inv_length = 1.0 / length(m.blocks)
+    # Define `runner` function, to map over `stages`.
+    runner(block::Chain)::V = (x = block(x); x)
+    function runner(blocks::T)::V where T <: AbstractVector
+        for block in blocks
+            p = m.drop_connect
+            if p ≢ nothing
+                p = p * block_id * inv_length
+            end
+            x = block(x; drop_probability=p)
+            block_id += 1
+        end
+        x
+    end
+
+    map(runner, stages)
 end
 
 function get_stages(e::EffNet)
