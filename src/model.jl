@@ -108,34 +108,7 @@ end
 """
 Use convolution layers to extract features from reduction levels.
 """
-function (m::EffNet)(x, ::Val{:stages})
-    sid = 1
-    stages_ids = m |> get_stages
-    stages = [x]
-
-    o = x |> m.stem
-    push!(stages, o)
-
-    for (i, block) in enumerate(m.blocks)
-        p = m.drop_connect
-        if !isnothing(p)
-            p = p * (i - 1) / length(m.blocks)
-        end
-        o = block(o; drop_probability=p)
-
-        if i == stages_ids[sid]
-            sid += 1
-            push!(stages, o)
-            if sid > length(stages_ids)
-                break
-            end
-        end
-    end
-
-    stages
-end
-
-function (m::EffNet)(x::V, ::Val{:stages_map}) where V <: AbstractArray
+function (m::EffNet)(x::V, ::Val{:stages}) where V <: AbstractArray
     # Create stages to pass to `map`.
     sids = m |> get_stages
     stages = (
