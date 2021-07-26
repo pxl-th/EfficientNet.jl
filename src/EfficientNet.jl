@@ -1,5 +1,5 @@
 module EfficientNet
-export EffNet, from_pretrained, stages_channels
+export EffNet
 
 using Downloads: download
 using Pickle

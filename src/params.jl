@@ -1,50 +1,50 @@
 struct BlockParams
-    repeat::Int64
-    kernel::Tuple{Int64, Int64}
-    stride::Int64
-    expand_ratio::Int64
-    in_channels::Int64
-    out_channels::Int64
-    se_ratio::Float64
+    repeat::Int
+    kernel::Tuple{Int, Int}
+    stride::Int
+    expand_ratio::Int
+    in_channels::Int
+    out_channels::Int
+    se_ratio::Real
     skip_connection::Bool
 end
 
 struct GlobalParams
-    width_coef::Float64
-    depth_coef::Float64
-    image_size::Tuple{Int64, Int64}
-    dropout_rate::Float32
+    width_coef::Real
+    depth_coef::Real
+    image_size::Tuple{Int, Int}
+    dropout_rate::Real
 
-    n_classes::Int64
-    bn_momentum::Float32
-    bn_ϵ::Float32
+    n_classes::Int
+    bn_momentum::Real
+    bn_ϵ::Real
 
-    drop_connect_rate::Float32
-    depth_divisor::Int64
-    min_depth::Union{Nothing, Int64}
+    drop_connect_rate::Real
+    depth_divisor::Int
+    min_depth::Union{Nothing, Int}
     include_top::Bool
 end
 
 function get_efficientnet_params(model_name::String)
     # (width_coefficient, depth_coefficient, resolution, dropout_rate)
     Dict(
-      "efficientnet-b0" => (1.0, 1.0, 224, 0.2f0),
-      "efficientnet-b1" => (1.0, 1.1, 240, 0.2f0),
-      "efficientnet-b2" => (1.1, 1.2, 260, 0.3f0),
-      "efficientnet-b3" => (1.2, 1.4, 300, 0.3f0),
-      "efficientnet-b4" => (1.4, 1.8, 380, 0.4f0),
-      "efficientnet-b5" => (1.6, 2.2, 456, 0.4f0),
-      "efficientnet-b6" => (1.8, 2.6, 528, 0.5f0),
-      "efficientnet-b7" => (2.0, 3.1, 600, 0.5f0),
-      "efficientnet-b8" => (2.2, 3.6, 672, 0.5f0),
-      "efficientnet-l2" => (4.3, 5.3, 800, 0.5f0),
+      "efficientnet-b0" => (1.0, 1.0, 224, 0.2),
+      "efficientnet-b1" => (1.0, 1.1, 240, 0.2),
+      "efficientnet-b2" => (1.1, 1.2, 260, 0.3),
+      "efficientnet-b3" => (1.2, 1.4, 300, 0.3),
+      "efficientnet-b4" => (1.4, 1.8, 380, 0.4),
+      "efficientnet-b5" => (1.6, 2.2, 456, 0.4),
+      "efficientnet-b6" => (1.8, 2.6, 528, 0.5),
+      "efficientnet-b7" => (2.0, 3.1, 600, 0.5),
+      "efficientnet-b8" => (2.2, 3.6, 672, 0.5),
+      "efficientnet-l2" => (4.3, 5.3, 800, 0.5),
     )[model_name]
 end
 
 function get_model_params(
     model_name::String;
-    n_classes::Int64 = 1000,
-    drop_connect_rate::Float32 = 0.2f0,
+    n_classes::Int = 1000,
+    drop_connect_rate::Real = 0.2,
     include_top::Bool = true
 )
     block_params = [

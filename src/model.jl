@@ -5,7 +5,7 @@ struct EffNet{S, B, H, P, F}
     pooling::P
     top::F
 
-    drop_connect::Union{Float32, Nothing}
+    drop_connect::Union{Real, Nothing}
     model_name::String
 end
 
@@ -23,7 +23,7 @@ function EffNet(
     )
     stem_bn = BatchNorm(
         out_channels, swish,
-        momentum=global_params.bn_momentum, ϵ=global_params.bn_ϵ,
+        # momentum=global_params.bn_momentum, ϵ=global_params.bn_ϵ,
     )
     stem = Chain(stem_conv, stem_bn)
     # Build blocks.
@@ -65,7 +65,7 @@ function EffNet(
     )
     head_bn = BatchNorm(
         head_out_channels, swish,
-        momentum=global_params.bn_momentum, ϵ=global_params.bn_ϵ,
+        # momentum=global_params.bn_momentum, ϵ=global_params.bn_ϵ,
     )
     head = Chain(head_conv, head_bn)
     # Final linear.
@@ -108,31 +108,33 @@ end
 """
 Use convolution layers to extract features from reduction levels.
 """
-function (m::EffNet)(x, ::Val{:stages})
-    sid = 1
-    stages_ids = m |> get_stages
-    stages = [x]
+function (m::EffNet)(x::V, ::Val{:stages}) where V <: AbstractArray
+    # Create stages to pass to `map`.
+    sids = m |> get_stages
+    stages = (
+        m.stem, m.blocks[1:sids[1]],
+        m.blocks[sids[1] + 1:sids[2]],
+        m.blocks[sids[2] + 1:sids[3]],
+        m.blocks[sids[3] + 1:sids[4]],
+    )
 
-    o = x |> m.stem
-    push!(stages, o)
-
-    for (i, block) in enumerate(m.blocks)
-        p = m.drop_connect
-        if !isnothing(p)
-            p = p * (i - 1) / length(m.blocks)
-        end
-        o = block(o; drop_probability=p)
-
-        if i == stages_ids[sid]
-            sid += 1
-            push!(stages, o)
-            if sid > length(stages_ids)
-                break
+    block_id = 0
+    inv_length = 1.0 / length(m.blocks)
+    # Define `runner` function, to map over `stages`.
+    runner(block::Chain)::V = (x = block(x); x)
+    function runner(blocks::T)::V where T <: AbstractVector
+        for block in blocks
+            p = m.drop_connect
+            if p ≢ nothing
+                p = p * block_id * inv_length
             end
+            x = block(x; drop_probability=p)
+            block_id += 1
         end
+        x
     end
 
-    stages
+    map(runner, stages)
 end
 
 function get_stages(e::EffNet)
@@ -154,14 +156,14 @@ end
 
 function stages_channels(e::EffNet)
     d = Dict(
-        "efficientnet-b0" => (3, 32, 24, 40, 112, 320),
-        "efficientnet-b1" => (3, 32, 24, 40, 112, 320),
-        "efficientnet-b2" => (3, 32, 24, 48, 120, 352),
-        "efficientnet-b3" => (3, 40, 32, 48, 136, 384),
-        "efficientnet-b4" => (3, 48, 32, 56, 160, 448),
-        "efficientnet-b5" => (3, 48, 40, 64, 176, 512),
-        "efficientnet-b6" => (3, 56, 40, 72, 200, 576),
-        "efficientnet-b7" => (3, 64, 48, 80, 224, 640),
+        "efficientnet-b0" => (32, 24, 40, 112, 320),
+        "efficientnet-b1" => (32, 24, 40, 112, 320),
+        "efficientnet-b2" => (32, 24, 48, 120, 352),
+        "efficientnet-b3" => (40, 32, 48, 136, 384),
+        "efficientnet-b4" => (48, 32, 56, 160, 448),
+        "efficientnet-b5" => (48, 40, 64, 176, 512),
+        "efficientnet-b6" => (56, 40, 72, 200, 576),
+        "efficientnet-b7" => (64, 48, 80, 224, 640),
     )
     if !(e.model_name in keys(d))
         throw("Only `efficientnet-[b0-b7]` are supported.")

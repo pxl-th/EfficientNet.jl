@@ -1,4 +1,4 @@
-function round_filter(filters::Int64, global_params::GlobalParams)::Int64
+function round_filter(filters::Int, global_params::GlobalParams)::Int
     global_params.width_coef ≈ 1 && return filters
 
     depth_divisor = global_params.depth_divisor
@@ -15,7 +15,7 @@ function round_filter(filters::Int64, global_params::GlobalParams)::Int64
 end
 
 @inline function compute_output_image_size(
-    image_size::Tuple{Int64, Int64}, stride::Int64,
+    image_size::Tuple{Int, Int}, stride::Int,
 )
-    ceil.(Int64, image_size ./ stride)
+    ceil.(Int, image_size ./ stride)
 end

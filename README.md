@@ -17,7 +17,7 @@ model = EffNet("efficientnet-b0"; n_classes=10)
 ## ImageNet pretrained model
 
 ```julia
-model = from_pretrained("efficientnet-b3")
+model = EfficientNet.from_pretrained("efficientnet-b3")
 ```
 
 By default, weights are stored in `~/.cache/EfficientNet.jl/` directory.
@@ -35,7 +35,7 @@ using Images
 using EfficientNet
 
 device = gpu
-model = from_pretrained("efficientnet-b3")
+model = EfficientNet.from_pretrained("efficientnet-b3")
 model = model |> testmode! |> device
 
 image = "./spaceshuttle.png"
@@ -58,5 +58,6 @@ features = model(x, Val(:stages))
 It will contain features, extracted from different resolution levels.
 This can be used in something like UNet architecture as an encoder.
 To get those resolution levels,
-call `get_stages(model)` and `stages_channels(model)` functions
+call `EfficientNet.get_stages(model)`
+and `EfficientNet.stages_channels(model)` functions
 to get ids of specific layers and output channels.

@@ -41,7 +41,7 @@ function MBConv(
     do_expansion = expansion_ratio != 1
     do_excitation = 0 < se_ratio ≤ 1
     do_skip = skip_connection && stride == 1 && in_channels == out_channels
-    drop = Dropout(0f0; dims=3)
+    drop = Dropout(0.0; dims=3)
 
     mid_channels = ceil(Int, in_channels * expansion_ratio)
     expansion, excitation = nothing, nothing
@@ -93,7 +93,7 @@ function Flux.testmode!(m::MBConv, mode = true)
     m
 end
 
-function (m::MBConv)(x; drop_probability::Union{Float32, Nothing} = nothing)
+function (m::MBConv)(x; drop_probability::Union{Real, Nothing} = nothing)
     if m.do_expansion
         o = x |> m.expansion |> m.depthwise
     else
