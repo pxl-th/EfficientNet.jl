@@ -11,7 +11,7 @@ EfficientNet implementation in Julia.
 ## Construct model
 
 ```julia
-model = EffNet("efficientnet-b0"; n_classes=10)
+model = EffNet("efficientnet-b0"; n_classes=10, in_channels=3)
 ```
 
 ## ImageNet pretrained model
@@ -57,7 +57,5 @@ features = model(x, Val(:stages))
 
 It will contain features, extracted from different resolution levels.
 This can be used in something like UNet architecture as an encoder.
-To get those resolution levels,
-call `EfficientNet.get_stages(model)`
-and `EfficientNet.stages_channels(model)` functions
+To get those resolution levels, use `model.stages` and `model.stages_channels`
 to get ids of specific layers and output channels.

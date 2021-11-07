@@ -11,7 +11,6 @@ mutable struct MBConv{E, D, X, P, S}
 
     active::Union{Bool, Nothing}
 end
-
 Flux.@functor MBConv
 
 """
@@ -35,57 +34,25 @@ Args:
 """
 function MBConv(
     in_channels, out_channels, kernel, stride;
-    expansion_ratio, se_ratio, skip_connection,
-    momentum, ϵ,
+    expansion_ratio, se_ratio, skip_connection, momentum, ϵ,
 )
-    do_expansion = expansion_ratio != 1
-    do_excitation = 0 < se_ratio ≤ 1
     do_skip = skip_connection && stride == 1 && in_channels == out_channels
-    drop = Dropout(0.0; dims=3)
+    do_expansion, do_excitation = expansion_ratio != 1, 0 < se_ratio ≤ 1
+    drop, pad, bias = Dropout(0.0; dims=3), SamePad(), false
 
     mid_channels = ceil(Int, in_channels * expansion_ratio)
-    expansion, excitation = nothing, nothing
-
-    # Expansion phase.
-    if do_expansion
-        expand_conv = Conv(
-            (1, 1), in_channels=>mid_channels, bias=false, pad=SamePad(),
-        )
-        bn0 = BatchNorm(mid_channels, swish; momentum, ϵ)
-        expansion = Chain(expand_conv, bn0)
-    end
-
-    # Depthwise phase.
-    depthwise_conv = Conv(
-        kernel, mid_channels=>mid_channels,
-        bias=false, stride=stride, pad=SamePad(), groups=mid_channels,
-    )
-    bn1 = BatchNorm(mid_channels, swish; momentum, ϵ)
-    depthwise = Chain(depthwise_conv, bn1)
-
-    # Squeeze and Excitation phase.
+    excitation = nothing
+    expansion = do_expansion ? Chain(Conv((1, 1), in_channels=>mid_channels; bias, pad), BatchNorm(mid_channels, swish; momentum, ϵ)) : nothing
+    depthwise = Chain(Conv(kernel, mid_channels=>mid_channels; bias, stride, pad, groups=mid_channels), BatchNorm(mid_channels, swish; momentum, ϵ))
     if do_excitation
         n_squeezed_channels = max(1, ceil(Int, in_channels * se_ratio))
-        squeeze_conv = Conv(
-            (1, 1), mid_channels=>n_squeezed_channels, swish; pad=SamePad(),
-        )
-        excite_conv = Conv(
-            (1, 1), n_squeezed_channels=>mid_channels; pad=SamePad(),
-        )
-        excitation = Chain(AdaptiveMeanPool((1, 1)), squeeze_conv, excite_conv)
+        excitation = Chain(
+            AdaptiveMeanPool((1, 1)),
+            Conv((1, 1), mid_channels=>n_squeezed_channels, swish; pad),
+            Conv((1, 1), n_squeezed_channels=>mid_channels; pad))
     end
-
-    # Projection phase.
-    project_conv = Conv(
-        (1, 1), mid_channels=>out_channels, pad=SamePad(), bias=false,
-    )
-    bn2 = BatchNorm(out_channels; momentum, ϵ)
-    projection = Chain(project_conv, bn2)
-
-    MBConv(
-        expansion, depthwise, excitation, projection, drop,
-        do_expansion, do_excitation, do_skip, nothing,
-    )
+    projection = Chain(Conv((1, 1), mid_channels=>out_channels; pad, bias), BatchNorm(out_channels; momentum, ϵ))
+    MBConv(expansion, depthwise, excitation, projection, drop, do_expansion, do_excitation, do_skip, nothing)
 end
 
 function Flux.testmode!(m::MBConv, mode = true)
@@ -99,15 +66,12 @@ function (m::MBConv)(x; drop_probability::Union{Real, Nothing} = nothing)
     else
         o = x |> m.depthwise
     end
-
     if m.do_excitation
         o = σ.(o |> m.excitation) .* o
     end
     o = o |> m.projection
-
     if m.do_skip
-        # The combination of skip connection and drop connect
-        # creates stochastic depth effect.
+        # The combination of skip connection and drop connect creates stochastic depth effect.
         if drop_probability ≢ nothing
             m.dropout.p = drop_probability
             o = o |> m.dropout
@@ -127,6 +91,5 @@ function Base.show(io::IO, m::MBConv{E, D, X, P, S}) where {E, D, X, P, S}
         "- do expansion: ", m.do_expansion, "\n",
         "- do excitation: ", m.do_excitation, "\n",
         "- do skip: ", m.do_skip, "\n",
-        "- active: ", m.active, "\n",
-    )
+        "- active: ", m.active, "\n")
 end
