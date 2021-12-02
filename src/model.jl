@@ -15,7 +15,7 @@ Flux.@functor EffNet
 function EffNet(model_name, block_params, global_params; include_head = true, in_channels = 3)
     pad, bias = SamePad(), false
     out_channels = round_filter(32, global_params)
-    stem = VChain(Conv((3, 3), in_channels=>out_channels; bias, stride=2, pad), BatchNorm(out_channels, swish))
+    stem = Chain(Conv((3, 3), in_channels=>out_channels; bias, stride=2, pad), BatchNorm(out_channels, swish))
 
     blocks = MBConv[]
     for bp in block_params
@@ -36,8 +36,8 @@ function EffNet(model_name, block_params, global_params; include_head = true, in
     include_head || return EffNet(stem, blocks, nothing, nothing, nothing, global_params.drop_connect_rate, stages, channels)
 
     head_out_channels = round_filter(1280, global_params)
-    head = VChain(Conv((1, 1), out_channels=>head_out_channels; bias, pad), BatchNorm(head_out_channels, swish))
-    top = global_params.include_top ? VChain(Dropout(global_params.dropout_rate), Dense(head_out_channels, global_params.n_classes)) : nothing
+    head = Chain(Conv((1, 1), out_channels=>head_out_channels; bias, pad), BatchNorm(head_out_channels, swish))
+    top = global_params.include_top ? Chain(Dropout(global_params.dropout_rate), Dense(head_out_channels, global_params.n_classes)) : nothing
     EffNet(stem, blocks, head, AdaptiveMeanPool((1, 1)), top, global_params.drop_connect_rate, stages, channels)
 end
 
@@ -69,7 +69,7 @@ function (m::EffNet)(x::V, ::Val{:stages}) where V <: AbstractArray
         m.stem, m.blocks[1:m.stages[1]], m.blocks[(m.stages[1] + 1):m.stages[2]],
         m.blocks[(m.stages[2] + 1):m.stages[3]], m.blocks[(m.stages[3] + 1):m.stages[4]])
 
-    runner(block::VChain)::V = (x = block(x); x)
+    runner(block::Chain)::V = (x = block(x); x)
     function runner(blocks::T)::V where T <: AbstractVector
         for block in blocks
             p = m.drop_connect
