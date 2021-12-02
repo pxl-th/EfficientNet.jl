@@ -42,16 +42,16 @@ function MBConv(
 
     mid_channels = ceil(Int, in_channels * expansion_ratio)
     excitation = nothing
-    expansion = do_expansion ? Chain(Conv((1, 1), in_channels=>mid_channels; bias, pad), BatchNorm(mid_channels, swish; momentum, ϵ)) : nothing
-    depthwise = Chain(Conv(kernel, mid_channels=>mid_channels; bias, stride, pad, groups=mid_channels), BatchNorm(mid_channels, swish; momentum, ϵ))
+    expansion = do_expansion ? VChain(Conv((1, 1), in_channels=>mid_channels; bias, pad), BatchNorm(mid_channels, swish; momentum, ϵ)) : nothing
+    depthwise = VChain(Conv(kernel, mid_channels=>mid_channels; bias, stride, pad, groups=mid_channels), BatchNorm(mid_channels, swish; momentum, ϵ))
     if do_excitation
         n_squeezed_channels = max(1, ceil(Int, in_channels * se_ratio))
-        excitation = Chain(
+        excitation = VChain(
             AdaptiveMeanPool((1, 1)),
             Conv((1, 1), mid_channels=>n_squeezed_channels, swish; pad),
             Conv((1, 1), n_squeezed_channels=>mid_channels; pad))
     end
-    projection = Chain(Conv((1, 1), mid_channels=>out_channels; pad, bias), BatchNorm(out_channels; momentum, ϵ))
+    projection = VChain(Conv((1, 1), mid_channels=>out_channels; pad, bias), BatchNorm(out_channels; momentum, ϵ))
     MBConv(expansion, depthwise, excitation, projection, drop, do_expansion, do_excitation, do_skip, nothing)
 end
 

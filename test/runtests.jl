@@ -5,7 +5,8 @@ using EfficientNet
 @testset "Test MBConv forward/backward passes" begin
     device = gpu
     m = EfficientNet.MBConv(
-        3, 3, (3, 3), 1; expansion_ratio=2f0, se_ratio=0.5f0, skip_connection=true, momentum=0.99f0, ϵ=1f-6)
+        3, 3, (3, 3), 1; expansion_ratio=2f0, se_ratio=0.5f0,
+        skip_connection=true, momentum=0.99f0, ϵ=1f-6)
     m = m |> trainmode! |> device
 
     trainables = m |> params
@@ -17,9 +18,9 @@ using EfficientNet
     o = m(x; drop_probability=0.2f0)
     @test size(o) == size(y)
 
-    gs = gradient(trainables) do
-        o = m(x; drop_probability=0.2f0)
-        Flux.mse(o, y)
+    @time Flux.mse(m(x; drop_probability=0.2f0), y)
+    @time gradient(trainables) do
+        Flux.mse(m(x; drop_probability=0.2f0), y)
     end
 end
 
@@ -37,8 +38,8 @@ end
     endpoints = model(x, Val(:stages))
     @test length(endpoints) == 5
 
-    gs = gradient(trainables) do
-        o = x |> model |> softmax
-        Flux.crossentropy(o, y)
+    @time Flux.crossentropy(softmax(model(x)), y)
+    @time gradient(trainables) do
+        Flux.crossentropy(softmax(model(x)), y)
     end
 end
