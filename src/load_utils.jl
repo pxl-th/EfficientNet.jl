@@ -58,8 +58,8 @@ function _load_head!(model::EffNet, params)
     copyto!(model.head[2].μ, params["_bn1.running_mean"])
     copyto!(model.head[2].σ², params["_bn1.running_var"])
     if model.top ≢ nothing
-        copyto!(model.top[2].weight, params["_fc.weight"])
-        copyto!(model.top[2].bias, params["_fc.bias"])
+        copyto!(model.top.weight, params["_fc.weight"])
+        copyto!(model.top.bias, params["_fc.bias"])
     end
 end
 

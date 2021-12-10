@@ -2,11 +2,15 @@ using Test
 using Flux
 using EfficientNet
 
+@testset "Test pretrained loading" begin
+    EfficientNet.from_pretrained("efficientnet-b0")
+end
+
 @testset "Test MBConv forward/backward passes" begin
     device = gpu
     m = EfficientNet.MBConv(
-        3, 3, (3, 3), 1; expansion_ratio=2f0, se_ratio=0.5f0,
-        skip_connection=true, momentum=0.99f0, ϵ=1f-6)
+        3, 3, (3, 3), 1; expansion_ratio=2f0,
+        se_ratio=0.5f0, skip_connection=true)
     m = m |> trainmode! |> device
 
     trainables = m |> params
@@ -15,12 +19,12 @@ using EfficientNet
     x = randn(Float32, 32, 32, 3, 1) |> device
     y = randn(Float32, 32, 32, 3, 1) |> device
 
-    o = m(x; drop_probability=0.2f0)
+    o = m(x)
     @test size(o) == size(y)
 
-    @time Flux.mse(m(x; drop_probability=0.2f0), y)
+    @time Flux.mse(m(x), y)
     @time gradient(trainables) do
-        Flux.mse(m(x; drop_probability=0.2f0), y)
+        Flux.mse(m(x), y)
     end
 end
 
