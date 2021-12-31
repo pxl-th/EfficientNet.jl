@@ -7,6 +7,7 @@ struct BlockParams
     out_channels::Int
     se_ratio::Real
     skip_connection::Bool
+    is_fused::Bool
 end
 
 struct GlobalParams
@@ -25,6 +26,7 @@ end
 get_efficientnet_params(model_name::String) =
     Dict(
         "efficientnet-b0" => (1.0, 1.0, 224),
+        "efficientnetv2-b0" => (1.0, 1.0, 224),
         "efficientnet-b1" => (1.0, 1.1, 240),
         "efficientnet-b2" => (1.1, 1.2, 260),
         "efficientnet-b3" => (1.2, 1.4, 300),
@@ -35,15 +37,26 @@ get_efficientnet_params(model_name::String) =
         "efficientnet-b8" => (2.2, 3.6, 672),
         "efficientnet-l2" => (4.3, 5.3, 800))[model_name]
 
-function get_model_params(model_name; n_classes = 1000, include_top = true)
-    block_params = [
-        BlockParams(1, (3, 3), 1, 1,  32,  16, 0.25, true),
-        BlockParams(2, (3, 3), 2, 6,  16,  24, 0.25, true),
-        BlockParams(2, (5, 5), 2, 6,  24,  40, 0.25, true),
-        BlockParams(3, (3, 3), 2, 6,  40,  80, 0.25, true),
-        BlockParams(3, (5, 5), 1, 6,  80, 112, 0.25, true),
-        BlockParams(4, (5, 5), 2, 6, 112, 192, 0.25, true),
-        BlockParams(1, (3, 3), 1, 6, 192, 320, 0.25, true)]
+function get_model_params(model_name; n_classes = 1000, include_top = true, v2 = false)
+    if !v2
+        block_params = [
+            BlockParams(1, (3, 3), 1, 1,  32,  16, 0.25, true, false),
+            BlockParams(2, (3, 3), 2, 6,  16,  24, 0.25, true, false),
+            BlockParams(2, (5, 5), 2, 6,  24,  40, 0.25, true, false),
+            BlockParams(3, (3, 3), 2, 6,  40,  80, 0.25, true, false),
+            BlockParams(3, (5, 5), 1, 6,  80, 112, 0.25, true, false),
+            BlockParams(4, (5, 5), 2, 6, 112, 192, 0.25, true, false),
+            BlockParams(1, (3, 3), 1, 6, 192, 320, 0.25, true, false)]
+    else 
+        block_params = [
+        BlockParams(2, (3, 3), 1, 1,  24,  24, 0.25, true, true),
+        BlockParams(4, (3, 3), 2, 6,  24,  48, 0.25, true, true),
+        BlockParams(4, (3, 3), 2, 6,  48,  64, 0.25, true, true),
+        BlockParams(6, (3, 3), 2, 6,  64,  128, 0.25, true, false),
+        BlockParams(9, (3, 3), 1, 6,  128, 160, 0.25, true, false),
+        BlockParams(15, (3, 3), 2, 6, 160, 256, 0.25, true, false)]
+    end
+
 
     wc, dc, res = get_efficientnet_params(model_name)
     global_params = GlobalParams(
