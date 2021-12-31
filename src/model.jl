@@ -11,12 +11,25 @@ struct EffNet{S, B, H, P, F}
 end
 Flux.@functor EffNet
 
+struct EffNetV2{S, B, H, P, F}
+    stem::S
+    blocks::B
+
+    head::H
+    pooling::P
+    top::F
+
+    stages::NTuple{4, Int}
+    stages_channels::NTuple{5, Int}
+end
+Flux.@functor EffNetV2
+
 function EffNet(model_name, block_params, global_params; include_head = true, in_channels = 3)
     pad, bias = SamePad(), false
-    out_channels = round_filter(32, global_params)
+    out_channels = round_filter(24, global_params)
     stem = Chain(Conv((3, 3), in_channels=>out_channels; bias, stride=2, pad), BatchNorm(out_channels, swish))
 
-    blocks = MBConv[]
+    blocks = []
     for bp in block_params
         in_channels = round_filter(bp.in_channels, global_params)
         out_channels = round_filter(bp.out_channels, global_params)
@@ -24,11 +37,12 @@ function EffNet(model_name, block_params, global_params; include_head = true, in
             bp.repeat : ceil(Int64, global_params.depth_coef * bp.repeat)
 
         expansion_ratio, se_ratio, skip_connection = bp.expand_ratio, bp.se_ratio, bp.skip_connection
-        push!(blocks, MBConv(
+        block = bp.is_fused ? FusedMBConv : MBConv
+        push!(blocks, block(
             in_channels, out_channels, bp.kernel, bp.stride;
             expansion_ratio, se_ratio, skip_connection))
         for _ in 1:(repeat - 1)
-            push!(blocks, MBConv(
+            push!(blocks, block(
                 out_channels, out_channels, bp.kernel, 1;
                 expansion_ratio, se_ratio, skip_connection))
         end
@@ -78,6 +92,7 @@ end
 get_stages(model_name) =
     Dict(
         "efficientnet-b0" => (3, 5, 9, 16),
+        "efficientnetv2-b0" => (3, 5, 9, 16),
         "efficientnet-b1" => (5, 8, 16, 23),
         "efficientnet-b2" => (5, 8, 16, 23),
         "efficientnet-b3" => (5, 8, 18, 26),
@@ -88,6 +103,7 @@ get_stages(model_name) =
 stages_channels(model_name) =
     Dict(
         "efficientnet-b0" => (32, 24, 40, 112, 320),
+        "efficientnetv2-b0" => (24, 24, 48, 128, 256),
         "efficientnet-b1" => (32, 24, 40, 112, 320),
         "efficientnet-b2" => (32, 24, 48, 120, 352),
         "efficientnet-b3" => (40, 32, 48, 136, 384),
